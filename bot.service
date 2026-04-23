@@ -1,0 +1,39 @@
+[Unit]
+Description=WhatsApp Moderation Bot
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/bo
+Environment=NODE_ENV=production
+Environment=LOG_LEVEL=warn
+Environment=UPLOADS_PATH=/opt/bo/uploads
+Environment=SESSION_PATH=/opt/bo/sessions
+Environment=OLLAMA_URL=http://localhost:11434
+Environment=MISTRAL_MODEL=mistral:7b-instruct
+Environment=PORT=3001
+
+ExecStart=/usr/bin/node /opt/bo/index.js
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s SIGINT $MAINPID
+Restart=always
+RestartSec=5s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/bo/uploads /opt/bo/sessions /opt/bo/logs /opt/bo/whatsapp_moderation.db
+MemoryDenyWriteExecute=true
+LimitNOFILE=65536
+
+# Logging systemd
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=whatsapp-moderation
+
+[Install]
+WantedBy=multi-user.target
+

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Moderation Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .media-img { max-height: 200px; object-fit: cover; }
+    .media-video { max-height: 200px; width: 100%; }
+  </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+  <div class="container mx-auto p-6">
+    <header class="mb-8">
+      <h1 class="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent mb-2">🤖 WhatsApp Moderation</h1>
+      <p class="text-gray-400">Silent AI-powered group moderation dashboard</p>
+    </header>
+
+    <!-- Login -->
+    <div id="login-section" class="max-w-md mx-auto">
+      <div class="bg-gray-800 p-8 rounded-xl shadow-2xl">
+        <h2 class="text-2xl font-bold mb-6 text-center">Login Admin</h2>
+        <form id="login-form">
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-2">Usuario</label>
+            <input type="text" id="username" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-purple-500 focus:outline-none">
+          </div>
+          <div class="mb-6">
+            <label class="block text-sm font-medium mb-2">Contraseña</label>
+            <input type="password" id="password" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-purple-500 focus:outline-none">
+          </div>
+          <button type="submit" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 p-3 rounded-lg font-semibold transition-all">
+            Entrar
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard-section" class="hidden">
+      <div class="flex justify-between items-center mb-8">
+        <div>
+          <button id="logout" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg font-medium">Cerrar Sesión</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-gray-800 p-6 rounded-xl">
+          <h3 class="text-lg font-semibold text-gray-300">Bans Activos</h3>
+          <p id="stats-bans" class="text-3xl font-bold text-green-400">0</p>
+        </div>
+        <div class="bg-gray-800 p-6 rounded-xl">
+          <h3 class="text-lg font-semibold text-gray-300">Infracciones</h3>
+          <p id="stats-infractions" class="text-3xl font-bold text-yellow-400">0</p>
+        </div>
+        <div class="bg-gray-800 p-6 rounded-xl">
+          <h3 class="text-lg font-semibold text-gray-300">Baneados Hoy</h3>
+          <p id="stats-today" class="text-3xl font-bold text-red-400">0</p>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="bg-gray-800 rounded-xl p-6 mb-8">
+        <div class="flex border-b border-gray-700">
+          <button class="tab-btn px-6 py-4 font-semibold border-b-2 border-purple-500 text-purple-400">Bans Activos</button>
+          <button class="tab-btn px-6 py-4 font-semibold text-gray-400 hover:text-white ml-1">Infracciones</button>
+        </div>
+        
+        <!-- Bans Tab -->
+        <div id="bans-tab" class="tab-content pt-6">
+          <div class="flex gap-4 mb-6">
+            <input id="filter-group" placeholder="Filtrar por grupo..." class="flex-1 p-3 bg-gray-700 rounded-lg border border-gray-600">
+            <select id="bans-per-page" class="p-3 bg-gray-700 rounded-lg border border-gray-600">
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <div id="bans-list" class="space-y-4"></div>
+        </div>
+
+        <!-- Infractions Tab -->
+        <div id="infractions-tab" class="tab-content hidden pt-6">
+          <div class="flex gap-4 mb-6">
+            <input id="filter-phone" placeholder="Filtrar por teléfono..." class="flex-1 p-3 bg-gray-700 rounded-lg border border-gray-600">
+            <input id="filter-group-i" placeholder="Filtrar por grupo..." class="flex-1 p-3 bg-gray-700 rounded-lg border border-gray-600">
+          </div>
+          <div id="infractions-list" class="space-y-4"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/';
+    
+    let currentPage = { bans: 0, infractions: 0 };
+    let bansPerPage = 25;
+    
+    // Login
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      
+      try {
+        const res = await fetch(API_BASE + 'login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        
+        if (res.ok) {
+          document.getElementById('login-section').classList.add('hidden');
+          document.getElementById('dashboard-section').classList.remove('hidden');
+          loadStats();
+          loadBans();
+        } else {
+          alert('Credenciales inválidas');
+        }
+      } catch (error) {
+        alert('Error de conexión');
+      }
+    });
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          b.classList.remove('border-purple-500', 'text-purple-400');
+          b.classList.add('text-gray-400');
+        });
+        btn.classList.add('border-purple-500', 'text-purple-400');
+        btn.classList.remove('text-gray-400');
+        
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+        document.getElementById(btn.dataset.tab || 'bans-tab').classList.remove('hidden');
+      });
+    });
+
+    async function loadBans(page = 0, groupFilter = '') {
+      try {
+        const url = new URL(API_BASE + 'api/bans');
+        url.searchParams.append('limit', bansPerPage);
+        url.searchParams.append('offset', page * bansPerPage);
+        if (groupFilter) url.searchParams.append('group_id', groupFilter);
+        
+        const res = await fetch(url);
+        const bans = await res.json();
+        
+        renderBans(bans);
+        document.getElementById('stats-bans').textContent = bans.length;
+      } catch (error) {
+        console.error('Load bans error:', error);
+      }
+    }
+
+    async function loadInfractions(page = 0) {
+      try {
+        const url = new URL(API_BASE + 'api/infractions');
+        url.searchParams.append('limit', bansPerPage);
+        url.searchParams.append('offset', page * bansPerPage);
+        
+        const res = await fetch(url);
+        const infractions = await res.json();
+        
+        renderInfractions(infractions);
+        document.getElementById('stats-infractions').textContent = infractions.length;
+      } catch (error) {
+        console.error('Load infractions error:', error);
+      }
+    }
+
+    function renderBans(bans) {
+      const container = document.getElementById('bans-list');
+      container.innerHTML = bans.map(ban => `
+        <div class="bg-gray-800 p-6 rounded-xl hover:bg-gray-750 transition-all">
+          <div class="flex justify-between items-start mb-4">
+            <div>
+              <h3 class="font-bold text-xl">${ban.phone}</h3>
+              <p class="text-gray-400">${ban.group_id}</p>
+            </div>
+            <span class="bg-red-500 px-3 py-1 rounded-full text-sm font-semibold">${ban.reason?.toUpperCase() || 'N/A'}</span>
+          </div>
+          <div class="space-y-2 mb-4">
+            ${ban.trigger_content ? `<p class="bg-gray-700 p-3 rounded-lg">${ban.trigger_content}</p>` : ''}
+            ${ban.media_url ? renderMedia(ban.media_url, ban.created_at) : ''}
+          </div>
+          <div class="flex gap-3 text-sm text-gray-400">
+            <span>${new Date(ban.created_at).toLocaleString()}</span>
+            <span>Expira: ${new Date(ban.expires_at).toLocaleString()}</span>
+          </div>
+          <button onclick="unban(${ban.id})" class="ml-auto mt-4 bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg font-semibold">
+            Desbanear
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function renderInfractions(infractions) {
+      const container = document.getElementById('infractions-list');
+      container.innerHTML = infractions.map(inf => `
+        <div class="bg-gray-800 p-6 rounded-xl">
+          <div class="flex justify-between items-start mb-4">
+            <div>
+              <h3 class="font-bold">${inf.phone}</h3>
+              <p class="text-sm text-gray-400">${inf.group_id}</p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-sm font-semibold 
+              ${inf.confidence >= 75 ? 'bg-orange-500' : 'bg-gray-600'}">
+              ${inf.strike_count || 1}° strike (${inf.confidence || 0}%)
+            </span>
+          </div>
+          <div class="space-y-2">
+            ${inf.content ? `<p>"${inf.content}"</p>` : ''}
+            ${inf.media_url ? renderMedia(inf.media_url, inf.type) : ''}
+            ${inf.reason ? `<span class="inline-block bg-purple-500 px-2 py-1 rounded text-xs">${inf.reason}</span>` : ''}
+          </div>
+          <p class="text-xs text-gray-500 mt-3">${new Date(inf.created_at).toLocaleString()}</p>
+        </div>
+      `).join('');
+    }
+
+    function renderMedia(url, type) {
+      if (type === 'video') {
+        return `<video controls class="media-video rounded-lg w-full max-w-md mx-auto block" src="${url}"></video>`;
+      }
+      return `<img src="${url}" alt="Media" class="media-img rounded-lg w-full max-w-md mx-auto block" onerror="this.style.display='none'">`;
+    }
+
+    async function unban(id) {
+      if (!confirm('¿Desbanear usuario?')) return;
+      
+      try {
+        const res = await fetch(\`/api/bans/\${id}\`, { method: 'DELETE' });
+        if (res.ok) {
+          loadBans(currentPage.bans);
+          loadStats();
+        }
+      } catch (error) {
+        alert('Error al desbanear');
+      }
+    }
+
+    async function loadStats() {
+      // Simplified stats
+      document.getElementById('stats-today').textContent = 'N/A';
+    }
+
+    // Event listeners
+    document.getElementById('logout').onclick = () => {
+      sessionStorage.clear();
+      location.reload();
+    };
+
+    document.getElementById('filter-group').oninput = debounce((e) => {
+      loadBans(0, e.target.value);
+    }, 300);
+
+    function debounce(func, wait) {
+      let timeout;
+      return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+      };
+    }
+  </script>
+</body>
+</html>
+
