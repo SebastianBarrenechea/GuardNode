@@ -28,16 +28,6 @@ git clone YOUR_REPO_URL whatsapp-moderation-bot
 cd whatsapp-moderation-bot
 npm install
 
-# Database setup
-sudo mysql_secure_installation
-sudo mysql -u root
-# In MySQL:
-CREATE DATABASE whatsapp_moderation;
-CREATE USER 'moderation_bot'@'localhost' IDENTIFIED BY 'securepass123';
-GRANT ALL ON whatsapp_moderation.* TO 'moderation_bot'@'localhost';
-FLUSH PRIVILEGES;
-exit;
-
 # Ollama + Mistral
 curl -fsSL https://ollama.ai/install.sh | sh
 ollama serve &amp;&amp;
